@@ -48,8 +48,7 @@ public class EmpaquetarFactura {
             SecretKey claveAES = kg.generateKey();
 
              //  Cifrar la Factura con AES/CBC. El IV se genera solo y hay
-            //    que guardarlo (no es secreto, pero es imprescindible para
-            //    descifrar).
+            //    que guardarlo
             Cipher cifradorAES = Cipher.getInstance(TRANSFORMACION_AES, "BC");
             cifradorAES.init(Cipher.ENCRYPT_MODE, claveAES);
             byte[] iv = cifradorAES.getIV();
