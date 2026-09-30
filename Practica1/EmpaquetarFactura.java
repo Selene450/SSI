@@ -95,6 +95,8 @@ public class EmpaquetarFactura {
             paquete.anadirBloque(BLOQUE_FIRMA_EMPRESA, firmaEmpresa);
             paquete.escribirPaquete(nombrePaquete);
 
+            System.out.println("Factura empaquetada correctamente en el fichero: " + nombrePaquete);
+
              } catch (IOException e) {
                 System.err.println("Error de E/S: " + e.getMessage());
                 System.exit(2);

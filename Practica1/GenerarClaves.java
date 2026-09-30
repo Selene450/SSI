@@ -49,7 +49,7 @@ public class GenerarClaves {
 		out.write(encodedX509);
 		out.close();
 		
-		System.out.println("Generadas claves RSA pÃºblica y privada de 512 bits en ficheros "+args[0] + ".publica"+ " y "+args[0] + ".privada");
+		System.out.println("Generadas claves RSA pública y privada de 512 bits en ficheros "+args[0] + ".publica"+ " y "+args[0] + ".privada");
 
 	}
 

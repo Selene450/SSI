@@ -1,7 +1,8 @@
 package Practica1;
- 
+
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.security.GeneralSecurityException;
@@ -12,11 +13,11 @@ import java.security.Security;
 import java.security.Signature;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.X509EncodedKeySpec;
- 
+
 import javax.crypto.Cipher;
 import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
- 
+
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 
 public class DesempaquetarFactura {
@@ -25,14 +26,17 @@ public class DesempaquetarFactura {
     private static final String BLOQUE_IV = "IV";
     private static final String BLOQUE_CLAVE_CIFRADA = "CLAVE_CIFRADA";
     private static final String BLOQUE_FIRMA_EMPRESA = "FIRMA_EMPRESA";
- 
+    private static final String BLOQUE_SELLO_TIEMPO = "SELLO_TIEMPO";
+    private static final String BLOQUE_FIRMA_AUTORIDAD = "FIRMA_AUTORIDAD";
+
     private static final String TRANSFORMACION_AES = "AES/CBC/PKCS5Padding";
     private static final String TRANSFORMACION_RSA = "RSA/ECB/PKCS1Padding";
     private static final String ALGORITMO_FIRMA = "SHA256withRSA";
+
     public static void main(String[] args) throws Exception {
-        if (args.length != 4) {
+        if (args.length != 5) {
             System.out.println(
-                    "Uso: java DesempaquetarFactura <ruta_paquete> <nombre_fichero_factura> <clave_privada_Hacienda> <clave_publica_Empresa>");
+                    "Uso: java DesempaquetarFactura <ruta_paquete> <nombre_fichero_factura> <clave_privada_Hacienda> <clave_publica_Empresa> <Clave_publica_Autoridad>");
             System.exit(1);
         }
 
@@ -40,6 +44,7 @@ public class DesempaquetarFactura {
         String nombreFicheroFactura = args[1];
         String ficheroClavePrivadaHacienda = args[2];
         String ficheroClavePublicaEmpresa = args[3];
+        String ficheroClavePublicaAutoridad = args[4];
 
         Security.addProvider(new BouncyCastleProvider());
 
@@ -52,11 +57,13 @@ public class DesempaquetarFactura {
         byte[] iv = paquete.getContenidoBloque(BLOQUE_IV);
         byte[] claveCifrada = paquete.getContenidoBloque(BLOQUE_CLAVE_CIFRADA);
         byte[] firmaEmpresa = paquete.getContenidoBloque(BLOQUE_FIRMA_EMPRESA);
+        byte[] selloTiempo = paquete.getContenidoBloque(BLOQUE_SELLO_TIEMPO);
+        byte[] firmaAutoridad = paquete.getContenidoBloque(BLOQUE_FIRMA_AUTORIDAD);
 
         if (facturaCifrada == null || iv == null || claveCifrada == null || firmaEmpresa == null) {
             System.err.println("El paquete esta incompleto: faltan bloques ("
                     + BLOQUE_FACTURA_CIFRADA + ", " + BLOQUE_IV + ", " + BLOQUE_CLAVE_CIFRADA
-                    + " o " + BLOQUE_FIRMA_EMPRESA + ").");
+                    + " , " + BLOQUE_FIRMA_EMPRESA + ", " + BLOQUE_SELLO_TIEMPO + ", " + BLOQUE_FIRMA_AUTORIDAD + ").");
             System.exit(2);
         }
 
@@ -87,6 +94,37 @@ public class DesempaquetarFactura {
         } catch (GeneralSecurityException e) {
             System.err.println("Error al verificar la firma de la Empresa: " + e.getMessage());
             System.exit(3);
+        }
+
+        //Verificar la firma de la autoridad antes de descifrar la factura
+        try {
+            byte[] bytesClavePublicaAutoridad = Files.readAllBytes(Paths.get(ficheroClavePublicaAutoridad));
+            X509EncodedKeySpec specClavePublicaAutoridad = new X509EncodedKeySpec(bytesClavePublicaAutoridad);
+            PublicKey clavePublicaAutoridad =
+                    KeyFactory.getInstance("RSA", "BC").generatePublic(specClavePublicaAutoridad);
+ 
+            ByteArrayOutputStream mensajeSellado = new ByteArrayOutputStream();
+            mensajeSellado.write(firmaEmpresa);
+            mensajeSellado.write(selloTiempo);
+ 
+            Signature verificadorSello = Signature.getInstance(ALGORITMO_FIRMA, "BC");
+            verificadorSello.initVerify(clavePublicaAutoridad);
+            verificadorSello.update(mensajeSellado.toByteArray());
+ 
+            if (verificadorSello.verify(firmaAutoridad)) {
+                System.out.println("Sello de tiempo valido. Fecha de sellado: "
+                        + new String(selloTiempo, StandardCharsets.UTF_8));
+            } else {
+                System.out.println("ATENCION: el sello de tiempo NO es autentico (el paquete "
+                        + "pudo sellarse con otro sello, o el sello fue alterado). La fecha de "
+                        + "entrega no se puede dar por valida.");
+            }
+        } catch (IOException e) {
+            System.err.println("No se puede leer la clave publica de la Autoridad: " + e.getMessage());
+            System.exit(8);
+        } catch (GeneralSecurityException e) {
+            System.err.println("Error al verificar el sello de tiempo: " + e.getMessage());
+            System.exit(8);
         }
 
         try {
