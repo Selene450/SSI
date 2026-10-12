@@ -74,7 +74,7 @@ public class SellarFactura {
 
             if (!verificador.verify(firmaEmpresa)) {
                 System.err.println("FIRMA DE LA EMPRESA NO VALIDA: el paquete no procede de "
-                        + "la Empresa correspondiente o ha sido modificado. No se descifra la factura.");
+                        + "la Empresa correspondiente o ha sido modificado. No se firma la factura.");
                 System.exit(7);
             }
             System.out.println("Firma de la Empresa verificada correctamente.");
